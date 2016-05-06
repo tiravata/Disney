@@ -180,6 +180,7 @@ class SchedulingOptimization:
 
     def calculateWaitTime(self, AttractionID, ArrivalTime, weekDayID):
         try:
+            ExtraWaitTime = 0
             if self.ShowFlagDict[AttractionID] == False:
                 #if this attraction is not a show
                 if ArrivalTime > 1440:
@@ -190,17 +191,50 @@ class SchedulingOptimization:
                     raise Exception("Attrition ID (%s) is not in AttritionList"%(AttractionID))
                 AdjustArrivalTime = ArrivalTime
 
+                #Check if attraction is available at this time or not
+                #if yes, we will just calculate waiting time as usual
+                #if no, we will wait until the attraction become available
+                for (i, (startTime, endTime)) in enumerate(self.AvailableTimes[(AttractionID, weekDayID)]):
+                    if (AdjustArrivalTime < startTime):
+                        ExtraWaitTime = startTime - AdjustArrivalTime
+                        AdjustArrivalTime = startTime
+                        break
+                    elif (AdjustArrivalTime > endTime):
+                        if (i == len(self.AvailableTimes[(AttractionID, weekDayID)]) - 1):
+                            return 1440
+                        else:
+                            continue
 
-
-                if ArrivalTime % 30 == 0:
-                    AdjustArrivalTime = ArrivalTime
-                else:
+                if AdjustArrivalTime % 30 != 0:
                     AdjustArrivalTime = AdjustArrivalTime + (30 - (AdjustArrivalTime % 30))
-                return self.WaitingTimes[(AttractionID, weekDayID, self.TimeSlotDict[AdjustArrivalTime])]
+
+                return self.WaitingTimes[(AttractionID, weekDayID, self.TimeSlotDict[AdjustArrivalTime])] + ExtraWaitTime
             else:
                 #If this attraction is a show
+                if ArrivalTime > 1440:
+                    raise Exception("Arrival Time Value too high in calculateWaitTime")
+                if ArrivalTime <= 0:
+                    raise Exception("Arrival Time Value too low in calculateWaitTime")
+                if AttractionID not in self.AttractionList:
+                    raise Exception("Attrition ID (%s) is not in AttritionList"%(AttractionID))
+                AdjustArrivalTime = ArrivalTime
 
-                pass
+                #Check if we arrive before on ontime for show or not
+                #if yes, we will just calculate waiting time as usual
+                #if no, we will wait until next show time
+                for (i, (startTime, endTime)) in enumerate(self.AvailableTimes[(AttractionID, weekDayID)]):
+                    if (AdjustArrivalTime <= startTime):
+                        ExtraWaitTime = startTime - AdjustArrivalTime
+                        AdjustArrivalTime = startTime
+                        break
+                    else:
+                        if (i == len(self.AvailableTimes[(AttractionID, weekDayID)]) - 1):
+                            return 1440
+                        else:
+                            continue
+
+                return ExtraWaitTime
+
         except Exception as ex:
             ErrorMessage = "Error calculating Waiting Time: " + " ".join([str(x) for x in ex.args])
             print ErrorMessage
