@@ -199,6 +199,9 @@ class SchedulingOptimization:
                         ExtraWaitTime = startTime - AdjustArrivalTime
                         AdjustArrivalTime = startTime
                         break
+                    elif (AdjustArrivalTime >= startTime) and (AdjustArrivalTime <= endTime):
+                        ExtraWaitTime = 0
+                        break
                     elif (AdjustArrivalTime > endTime):
                         if (i == len(self.AvailableTimes[(AttractionID, weekDayID)]) - 1):
                             return 1440
