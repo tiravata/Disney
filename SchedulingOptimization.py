@@ -276,7 +276,7 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def evaluate_Solution(self, Solution, Importance, StartTime, EndTime, ParameterDict, weekDayID):
+    def evaluate_Solution(self, Solution, Importance, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID):
         #Solution is the list of AttractionID in order
         try:
             SolutionDetail = []
@@ -303,16 +303,16 @@ class SchedulingOptimization:
             currentAttraction = Solution[0]
             currentImportance = Importance[0]
             currentTime = StartTime
-            currentTravelTime = self.TravelTimes[("Entrance", currentAttraction)]
+            currentTravelTime = self.TravelTimes[(StartLocationID, currentAttraction)]
             nextArrivalTime = currentTime + currentTravelTime
             currentWaitingTime = self.calculateWaitTime(currentAttraction, nextArrivalTime, weekDayID)
             nextFinishTime = nextArrivalTime + currentWaitingTime + self.PlayTimes[currentAttraction]
-            if nextFinishTime + self.TravelTimes[(currentAttraction, "Entrance")] < EndTime:
+            if nextFinishTime + self.TravelTimes[(currentAttraction, EndLocationID)] < EndTime:
                 CanAttendList.append(currentAttraction)
                 TotalScore += currentImportance * ParameterDict["Importance_Adj"]
                 TotalScore -= currentWaitingTime * ParameterDict["WaitingTime_Adj"]
                 TotalScore -= currentTravelTime * ParameterDict["TravelTime_Adj"]
-                SolutionDetail.append("Travel:(Entrance=>%s):[%d-%d]"%(currentAttraction, currentTime, nextArrivalTime))
+                SolutionDetail.append("Travel:(StartLocation=>%s):[%d-%d]"%(currentAttraction, currentTime, nextArrivalTime))
                 SolutionDetail.append("Wait:(%s):[%d-%d]"%(currentAttraction, nextArrivalTime, nextArrivalTime + currentWaitingTime))
                 SolutionDetail.append("Play:(%s):[%d-%d]"%(currentAttraction, nextArrivalTime + currentWaitingTime, nextFinishTime))
             else:
@@ -328,7 +328,7 @@ class SchedulingOptimization:
                     nextArrivalTime = currentTime + currentTravelTime
                     currentWaitingTime = self.calculateWaitTime(currentAttraction, nextArrivalTime, weekDayID)
                     nextFinishTime = nextArrivalTime + currentWaitingTime + self.PlayTimes[currentAttraction]
-                    if nextFinishTime + self.TravelTimes[(currentAttraction, "Entrance")] < EndTime:
+                    if nextFinishTime + self.TravelTimes[(currentAttraction, EndLocationID)] < EndTime:
                         CanAttendList.append(currentAttraction)
                         TotalScore += currentImportance * ParameterDict["Importance_Adj"]
                         TotalScore -= currentWaitingTime * ParameterDict["WaitingTime_Adj"]
@@ -341,8 +341,8 @@ class SchedulingOptimization:
                         break
 
                 if LastAttraction is not None:
-                    TotalScore -= self.TravelTimes[(LastAttraction, "Entrance")]* ParameterDict["TravelTime_Adj"]
-                    SolutionDetail.append("Travel:(%s=>Entrance):[%d-%d]"%(LastAttraction, nextFinishTime, nextFinishTime + self.TravelTimes[(LastAttraction, "Entrance")]))
+                    TotalScore -= self.TravelTimes[(LastAttraction, EndLocationID)]* ParameterDict["TravelTime_Adj"]
+                    SolutionDetail.append("Travel:(%s=>EndLocation):[%d-%d]"%(LastAttraction, nextFinishTime, nextFinishTime + self.TravelTimes[(LastAttraction, EndLocationID)]))
 
             return (CanAttendList, SolutionDetail, TotalScore)
         except Exception as ex:
@@ -350,7 +350,7 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def run_ConstructionHeuristic(self, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID):
+    def run_ConstructionHeuristic(self, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID):
         try:
             Solution = []
             Important = []
@@ -372,7 +372,7 @@ class SchedulingOptimization:
             index = 0
             maxIndex = len(AttractionImportantList)
             currentTime = StartTime
-            currentLocation = "Entrance"
+            currentLocation = StartLocationID
             while(len(AttractionImportantList) > 0 and index < maxIndex):
                 index += 1
                 #Calculate Score
@@ -383,7 +383,7 @@ class SchedulingOptimization:
                     TravelTime = self.TravelTimes[(currentLocation, att)]
                     ArrivingTime = currentTime + TravelTime
                     WaitingTime = self.calculateWaitTime(att, ArrivingTime, weekDayID)
-                    PossibleExitTime = ArrivingTime + WaitingTime + self.PlayTimes[att] + self.TravelTimes[(att, "Entrance")]
+                    PossibleExitTime = ArrivingTime + WaitingTime + self.PlayTimes[att] + self.TravelTimes[(att, EndLocationID)]
                     if PossibleExitTime > EndTime:
                         RemoveList.append(att)
                         continue
@@ -417,7 +417,7 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def run_LocalSearchImprovingHeuristic(self, initialSolution, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, max_niterations):
+    def run_LocalSearchImprovingHeuristic(self, initialSolution, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, max_niterations, StartLocationID, EndLocationID):
         try:
             attractionToImportantDict = {att:imp for (att, imp) in zip(SelectedAttractionList, SelectedImportantList) if att in self.AttractionList}
             wipSelectedAttractionSet = set([att for att in initialSolution if att in self.AttractionList])
@@ -426,7 +426,7 @@ class SchedulingOptimization:
             currentBestImportant = [attractionToImportantDict[att] for att in currentBestSolution]
             currentSolution = currentBestSolution[:]
             currentImportant = [attractionToImportantDict[att] for att in currentSolution]
-            currentBestScore = self.evaluate_Solution(currentBestSolution, currentImportant, StartTime, EndTime, ParameterDict, weekDayID)[2]
+            currentBestScore = self.evaluate_Solution(currentBestSolution, currentImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)[2]
             improvement = True
             iteration = 0
             if(max_niterations <= 1): max_niterations = 50
@@ -436,6 +436,8 @@ class SchedulingOptimization:
                 IterationSwapAtt2 = None
                 BestSolutionThisIteration = currentSolution[:]
                 BestImportantThisIteration = currentImportant[:]
+
+                ##Swaping Neighborhood
                 #Loop to search for candidate attraction (to swap with other either swap place or swap out
                 #we will then loop to search for best swap both inside and outside
                 #we will calculate score for each alternative and pick best alternative
@@ -456,7 +458,7 @@ class SchedulingOptimization:
                         newTrialSolution[Index2] = candAtt
                         newTrialImportant[Index1] = currentImportant[Index2]
                         newTrialImportant[Index2] = currentImportant[Index1]
-                        TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID)
+                        TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)
                         newTrialSolutionReal = TrialEvalResult[0]
                         TrialSolutionScore = TrialEvalResult[2]
 
@@ -472,7 +474,7 @@ class SchedulingOptimization:
                         Index1 = currentSolution.index(candAtt)
                         newTrialSolution[Index1] = swapAtt
                         newTrialImportant[Index1] = attractionToImportantDict[swapAtt]
-                        TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID)
+                        TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)
                         newTrialSolutionReal = TrialEvalResult[0]
                         TrialSolutionScore = TrialEvalResult[2]
 
@@ -481,6 +483,50 @@ class SchedulingOptimization:
                             currentBestImportant = [attractionToImportantDict[att] for att in currentBestSolution]
                             currentBestScore = TrialSolutionScore
                             improvement = True
+
+                ##Removing Neighborhood
+                for candAtt, canImp in zip(currentSolution, currentImportant):
+                    newTrialSolution = currentSolution[:]
+                    newTrialImportant = currentImportant[:]
+                    Index1 = currentSolution.index(candAtt)
+                    del newTrialSolution[Index1]
+                    del newTrialImportant[Index1]
+                    TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)
+                    newTrialSolutionReal = TrialEvalResult[0]
+                    TrialSolutionScore = TrialEvalResult[2]
+                    if(TrialSolutionScore > currentBestScore):
+                        currentBestSolution = newTrialSolutionReal[:]
+                        currentBestImportant = [attractionToImportantDict[att] for att in currentBestSolution]
+                        currentBestScore = TrialSolutionScore
+                        improvement = True
+
+
+                ##Adding Neighnorhood
+                for addAtt in wipNonSelectedAttractionSet:
+                    newTrialSolution = currentSolution[:]
+                    newTrialImportant = currentImportant[:]
+                    for insertIndex in range(len(currentSolution)):
+                        newTrialSolution = newTrialSolution[:insertIndex] + [addAtt] + newTrialSolution[insertIndex:]
+                        newTrialImportant = newTrialImportant[:insertIndex] + [attractionToImportantDict[addAtt]] + newTrialImportant[insertIndex:]
+                        TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)
+                        newTrialSolutionReal = TrialEvalResult[0]
+                        TrialSolutionScore = TrialEvalResult[2]
+                        if(TrialSolutionScore > currentBestScore):
+                            currentBestSolution = newTrialSolutionReal[:]
+                            currentBestImportant = [attractionToImportantDict[att] for att in currentBestSolution]
+                            currentBestScore = TrialSolutionScore
+                            improvement = True
+
+                    newTrialSolution = newTrialSolution[:] + [addAtt]
+                    newTrialImportant = newTrialImportant[:] + [attractionToImportantDict[addAtt]]
+                    TrialEvalResult = self.evaluate_Solution(newTrialSolution, newTrialImportant, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID)
+                    newTrialSolutionReal = TrialEvalResult[0]
+                    TrialSolutionScore = TrialEvalResult[2]
+                    if(TrialSolutionScore > currentBestScore):
+                        currentBestSolution = newTrialSolutionReal[:]
+                        currentBestImportant = [attractionToImportantDict[att] for att in currentBestSolution]
+                        currentBestScore = TrialSolutionScore
+                        improvement = True
 
                 #Find Best Solution for this iteration
                 #If there is improvement, update data structures
