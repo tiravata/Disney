@@ -139,16 +139,23 @@ class SchedulingOptimization:
             #Start Reading AvailableTime
             FileAvailableTimeDF = pd.read_csv(AvailableTimeFile, sep="|", header=0, dtype={"AttractionID":object, "DayOfWeekID": object, "StartTime": int, "EndTime": int})
             FileAvailableTimeDF.sort_values(by=["AttractionID","DayOfWeekID","StartTime"], ascending=[True, True, True])
+
+            from collections import defaultdict
+            self.AvailableTimes = defaultdict(list)
+
             for att in self.AttractionList:
                 for dow in range(7):
                     self.AvailableTimes[(att, dow)] = list()
-            from collections import defaultdict
-            self.AvailableTimes = defaultdict(list)
+
             for index, row in FileAvailableTimeDF.iterrows():
                 att = row["AttractionID"]
-                dow = row["DayOfWeekID"]
+                if str(row['DayOfWeekID']).lower().strip() not in self.DayOfWeekDict.keys():
+                    continue
+                dow = self.DayOfWeekDict[str(row['DayOfWeekID']).lower().strip()]
                 startTime = row["StartTime"]
                 endTime = row["EndTime"]
+                if startTime < 0 or endTime < 0 or startTime > 1440 or endTime > 1440 or startTime > endTime:
+                    continue
                 if (att, dow) in self.AvailableTimes:
                     self.AvailableTimes[(att, dow)].append((startTime, endTime))
         except Exception as ex:
@@ -276,7 +283,7 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def evaluate_Solution(self, Solution, Importance, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID):
+    def evaluate_Solution(self, Solution, Importance, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID = 'Entrance', EndLocationID = 'Entrance'):
         #Solution is the list of AttractionID in order
         try:
             SolutionDetail = []
@@ -350,7 +357,8 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def run_ConstructionHeuristic(self, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, StartLocationID, EndLocationID):
+    def run_ConstructionHeuristic(self, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, \
+                                  StartLocationID = 'Entrance', EndLocationID = 'Entrance'):
         try:
             Solution = []
             Important = []
@@ -417,7 +425,9 @@ class SchedulingOptimization:
             print ErrorMessage
             raise Exception(ErrorMessage)
 
-    def run_LocalSearchImprovingHeuristic(self, initialSolution, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, ParameterDict, weekDayID, max_niterations, StartLocationID, EndLocationID):
+    def run_LocalSearchImprovingHeuristic(self, initialSolution, SelectedAttractionList, SelectedImportantList, StartTime, EndTime, \
+                                          ParameterDict, weekDayID, max_niterations, \
+                                          StartLocationID = 'Entrance', EndLocationID = 'Entrance'):
         try:
             attractionToImportantDict = {att:imp for (att, imp) in zip(SelectedAttractionList, SelectedImportantList) if att in self.AttractionList}
             wipSelectedAttractionSet = set([att for att in initialSolution if att in self.AttractionList])

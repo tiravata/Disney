@@ -1,0 +1,16 @@
+AttractionID1|AttractionID2|TravelTime
+A1|A1|5
+A1|A2|15
+A1|A3|10
+A2|A1|15
+A2|A2|5
+A2|A3|20
+A3|A1|10
+A3|A2|20
+A3|A3|5
+Entrance|A1|20
+Entrance|A2|20
+Entrance|A3|20
+A1|Entrance|20
+A2|Entrance|20
+A3|Entrance|20
